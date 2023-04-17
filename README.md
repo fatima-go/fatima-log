@@ -1,6 +1,6 @@
 # Golang logging library #
 
-Package throosea.com/log implements a logging infrastructure for Go. 
+Package fatima-go/fatima-log implements a logging infrastructure for Go. 
 
 ```
 # without ShowMethod
@@ -131,22 +131,22 @@ log.SetSentryFlushSecond(1)
 
 # log folder sample #
 ```
-OSX:juno throosea$ ls -ltr
+OSX:juno fatima-go$ ls -ltr
 total 4200
--rw-r--r--  1 throosea  staff     7654  3  8 16:15 juno.2017-03-08.log
--rw-------  1 throosea  staff    10880  3 11 22:57 juno.2017-03-11.log
--rw-------  1 throosea  staff    75197  3 12 23:02 juno.2017-03-12.log
--rw-------  1 throosea  staff    18801  3 13 09:49 juno.2017-03-13.log
--rw-------  1 throosea  staff    10189  3 14 18:29 juno.2017-03-14.log
--rw-------  1 throosea  staff    27583  3 15 13:37 juno.2017-03-15.log
--rw-------  1 throosea  staff    57586  3 16 19:13 juno.2017-03-16.log
--rw-------  1 throosea  staff   112852  3 17 23:59 juno.2017-03-17.log
--rw-------  1 throosea  staff   322963  3 18 16:35 juno.2017-03-18.log
--rw-------  1 throosea  staff  1208322  3 24 23:30 juno.2017-03-24.log
--rw-------  1 throosea  staff    39266  3 25 23:52 juno.2017-03-25.log
--rw-------  1 throosea  staff   148527  3 26 19:16 juno.2017-03-26.log
--rw-------  1 throosea  staff    45154  4 14 23:26 juno.2017-04-14.log
--rw-------  1 throosea  staff    32544  4 17 18:00 juno.2017-04-17.log
--rw-------  1 throosea  staff     2334  4 19 18:09 juno.log
-OSX:juno throosea$
+-rw-r--r--  1 fatima-go  staff     7654  3  8 16:15 juno.2017-03-08.log
+-rw-------  1 fatima-go  staff    10880  3 11 22:57 juno.2017-03-11.log
+-rw-------  1 fatima-go  staff    75197  3 12 23:02 juno.2017-03-12.log
+-rw-------  1 fatima-go  staff    18801  3 13 09:49 juno.2017-03-13.log
+-rw-------  1 fatima-go  staff    10189  3 14 18:29 juno.2017-03-14.log
+-rw-------  1 fatima-go  staff    27583  3 15 13:37 juno.2017-03-15.log
+-rw-------  1 fatima-go  staff    57586  3 16 19:13 juno.2017-03-16.log
+-rw-------  1 fatima-go  staff   112852  3 17 23:59 juno.2017-03-17.log
+-rw-------  1 fatima-go  staff   322963  3 18 16:35 juno.2017-03-18.log
+-rw-------  1 fatima-go  staff  1208322  3 24 23:30 juno.2017-03-24.log
+-rw-------  1 fatima-go  staff    39266  3 25 23:52 juno.2017-03-25.log
+-rw-------  1 fatima-go  staff   148527  3 26 19:16 juno.2017-03-26.log
+-rw-------  1 fatima-go  staff    45154  4 14 23:26 juno.2017-04-14.log
+-rw-------  1 fatima-go  staff    32544  4 17 18:00 juno.2017-04-17.log
+-rw-------  1 fatima-go  staff     2334  4 19 18:09 juno.log
+OSX:juno fatima-go$
 ```
