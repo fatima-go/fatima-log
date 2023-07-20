@@ -84,7 +84,6 @@ func createError()  {
 ```
 
 # Log with STDOUT #
-
 ```go
 func TestSecretDecryptNative(t *testing.T) {
 	log.Initialize(log.NewPreference(""))	// stdout
