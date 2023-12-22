@@ -83,6 +83,14 @@ func createError()  {
 
 ```
 
+# Log with STDOUT #
+```go
+func TestSecretDecryptNative(t *testing.T) {
+	log.Initialize(log.NewPreference(""))	// stdout
+	.......
+}
+```
+
 # Logging Properties #
 
 You can set logging preference. below is preference properties
