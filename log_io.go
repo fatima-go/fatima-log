@@ -65,13 +65,10 @@ func ensureLogFileExist() {
 	stat, err = os.Stat(logPreference.logFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			logPreference.logFilePtr, err = os.Create(logPreference.logFilePath)
-			if err != nil {
+			if err = createLogFile(); err != nil {
 				fmt.Printf("%s fail to create : %s", logPreference.logFilePath, err)
-				logPreference.logFilePtr = nil
 				return
 			}
-			logPreference.currentLogFileTime = time.Now()
 		} else if stat.IsDir() {
 			fmt.Printf("%s path exist as directory. fail to logging", logPreference.logFilePath)
 			logPreference.logFilePtr = nil
@@ -92,17 +89,25 @@ func moveToBackupLog() {
 	var err error
 	var stat os.FileInfo
 
-	stat, err = os.Stat(logPreference.logFilePath)
-	if err != nil {
-		fmt.Printf("fail to stat log file : %s\n", err)
-		logPreference.logFilePtr = nil
-		return
-	}
-
 	// close current log file ptr
 	if logPreference.logFilePtr != nil {
 		logPreference.logFilePtr.Close()
 		logPreference.logFilePtr = nil
+	}
+
+	stat, err = os.Stat(logPreference.logFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// 파일이 외부에서 삭제된 경우: backup 없이 새 파일 생성으로 복구
+			if err = createLogFile(); err != nil {
+				fmt.Printf("fail to recreate log file : %s\n", err.Error())
+				return
+			}
+			return
+		}
+		fmt.Printf("fail to stat log file : %s\n", err.Error())
+		logPreference.logFileLoaded = false
+		return
 	}
 
 	// move current file to backup
@@ -119,18 +124,26 @@ func moveToBackupLog() {
 		removeOldLogFiles()
 	}()
 
-	// wait for file-io cache released : skip 1 tick
+	// wait for file-io cache released: skip 1 tick
 	time.Sleep(time.Millisecond * time.Duration(1000/Hertz))
 
 	// open for new log file
-	logPreference.logFilePtr, err = os.OpenFile(logPreference.logFilePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
+	if err = createLogFile(); err != nil {
 		fmt.Printf("fail to open for new log file : %s\n", err.Error())
-		logPreference.logFilePtr = nil
 		return
 	}
+}
 
+func createLogFile() error {
+	var err error
+	logPreference.logFilePtr, err = os.OpenFile(
+		logPreference.logFilePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		logPreference.logFilePtr = nil
+		return err
+	}
 	logPreference.currentLogFileTime = time.Now()
+	return nil
 }
 
 func writeLogEventToFile(s string) (n int, err error) {
