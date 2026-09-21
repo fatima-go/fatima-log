@@ -44,9 +44,13 @@ func Initialize(pref preference) {
 	}
 
 	loggerStatus = LOGGING_STATUS_RUNNING
+	// 설정이 자리잡기 전에 끼어든 로그가 빈 설정으로 만든 소스 표기를 캐시에 남기지 않도록, 설정 반영과 캐시 리셋을 한 락 안에서 한다.
+	callSiteMu.Lock()
 	logPreference = pref
 	normalizePreference(&logPreference)
 	logPreference.logFilePath = fmt.Sprintf("%s.log", filepath.Join(pref.logFolder, pref.ProcessName))
+	resetCallSites()
+	callSiteMu.Unlock()
 	if logPreference.DeliveryMode == DELIVERY_MODE_ASYNC {
 		go func() {
 			for {
@@ -62,17 +66,35 @@ func Initialize(pref preference) {
 	SetLevel(logPreference.DefaultLogLevel)
 }
 
+// SetSourcePrintSize 소스 표기 길이를 바꾼다. 캐시된 소스 표기가 달라지므로 값이 바뀌면 호출 위치 캐시를 비운다.
 func SetSourcePrintSize(newValue uint8) {
 	// minimum source print size : 10
 	if newValue < 10 {
 		return
 	}
 
+	callSiteMu.Lock()
+	defer callSiteMu.Unlock()
+
+	if logPreference.SourcePrintSize == newValue {
+		return
+	}
+
 	logPreference.SourcePrintSize = newValue
+	resetCallSites()
 }
 
+// SetShowMethod 메서드명 표기 여부를 바꾼다. 캐시된 소스 표기가 달라지므로 값이 바뀌면 호출 위치 캐시를 비운다.
 func SetShowMethod(newValue bool) {
+	callSiteMu.Lock()
+	defer callSiteMu.Unlock()
+
+	if logPreference.ShowMethod == newValue {
+		return
+	}
+
 	logPreference.ShowMethod = newValue
+	resetCallSites()
 }
 
 func SetKeepingFileDays(days uint16) {
@@ -226,24 +248,29 @@ func Trace(v ...interface{}) {
 	}
 }
 
+// print skip 은 runtime.Caller 기준으로 print 자신이 0, 로그 함수를 호출한 쪽이 2 다.
 func print(skip int, level LogLevel, v ...interface{}) {
-	pc, file, line, _ := runtime.Caller(skip)
+	// resolveCallSite 안의 runtime.Callers 기준으로는 Callers(0), resolveCallSite(1) 두 프레임이 더 있다.
+	site, depth := resolveCallSite(skip + 2)
 
 	var logEvent LogEvent
 
 	if originError, ok := v[len(v)-1].(error); ok {
-		errEvent := newErrorTraceLogEvent(pc, file, line, originError)
-		for i := 3; i < int(logPreference.MaxErrorTraceLevel); i++ {
-			pc, file, line, exist := runtime.Caller(i)
-			if !exist {
-				break
+		errEvent := newErrorTraceLogEvent(site, originError)
+		// 트레이스는 찾아낸 호출 위치의 바로 위 프레임부터 남긴다. 헬퍼를 거쳐도 시작점이 밀리지 않는다.
+		if limit := int(logPreference.MaxErrorTraceLevel) - 3; limit > 0 {
+			pcs := make([]uintptr, limit)
+			n := runtime.Callers(skip+depth+2, pcs)
+			frames := runtime.CallersFrames(pcs[:n])
+			for more := n > 0; more; {
+				var frame runtime.Frame
+				frame, more = frames.Next()
+				errEvent.append(TracePoint{funcName: functionNameOf(frame.Function), file: frame.File, line: frame.Line})
 			}
-			point := TracePoint{pc: pc, file: file, line: line}
-			errEvent.append(point)
 		}
 		logEvent = errEvent
 	} else {
-		logEvent = newGeneralLogEvent(pc, file, line)
+		logEvent = newGeneralLogEvent(site)
 	}
 
 	logEvent.setLevel(level)
