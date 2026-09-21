@@ -21,33 +21,22 @@
 package log
 
 import (
-	"bytes"
 	"fmt"
-	"runtime"
-	"strings"
 	"time"
 )
 
-func newGeneralLogEvent(pc uintptr, file string, line int) *GeneralLogEvent {
+func newGeneralLogEvent(site *callSite) *GeneralLogEvent {
 	event := GeneralLogEvent{}
 	event.t = time.Now()
-	event.pc = pc
-	event.file = file
-	event.line = line
-	if logPreference.ShowMethod {
-		event.funcName = findFunctionName(pc)
-	}
+	event.site = site
 	return &event
 }
 
 type GeneralLogEvent struct {
 	t         time.Time
-	pc        uintptr
 	level     LogLevel
 	levelStr  string
-	file      string
-	funcName  string
-	line      int
+	site      *callSite
 	message   []interface{}
 	published string
 }
@@ -72,60 +61,11 @@ func (this *GeneralLogEvent) publish() {
 }
 
 func (this *GeneralLogEvent) buildMessage(f func() string) string {
-	var location = this.file
-	var found = strings.LastIndex(this.file, "/src/")
-	if found > 0 {
-		location = string(this.file[found+5:])
-	} else {
-		found = strings.LastIndex(this.file, "/mod/")
-		if found > 0 {
-			location = string(this.file[found+5:])
-		}
-	}
-
-	var buffer bytes.Buffer
-	var tokens = strings.Split(location, "/")
-	var length = len(tokens)
-	for i, s := range tokens {
-		if len(s) == 0 {
-			continue
-		}
-
-		if i < length-1 {
-			buffer.WriteByte(s[0])
-			buffer.WriteByte('.')
-		} else {
-			buffer.WriteString(s[:len(s)-3])
-		}
-	}
-
 	return fmt.Sprintf("%s %s [%s] %s\n",
 		this.t.Format("2006-01-02 15:04:05.000"),
 		this.levelStr,
-		this.buildSourceDescription(buffer.String()),
+		this.site.source,
 		f())
-}
-
-func (this *GeneralLogEvent) buildSourceDescription(source string) string {
-	var message string
-
-	if logPreference.ShowMethod {
-		message = fmt.Sprintf("%s.%s():%d", source, this.funcName, this.line)
-	} else {
-		message = fmt.Sprintf("%s:%d", source, this.line)
-	}
-
-	startIndex := len(message) - int(logPreference.SourcePrintSize)
-	if startIndex >= 0 {
-		return message[startIndex:]
-	}
-
-	var buffer bytes.Buffer
-	for i := startIndex; i < 0; i++ {
-		buffer.WriteByte(' ')
-	}
-	buffer.WriteString(message)
-	return buffer.String()
 }
 
 func (this *GeneralLogEvent) getTime() time.Time {
@@ -150,13 +90,4 @@ func (this *GeneralLogEvent) setLevel(level LogLevel) {
 
 func (this *GeneralLogEvent) setArgs(args ...interface{}) {
 	this.message = args
-}
-
-func findFunctionName(pc uintptr) string {
-	var funcName = runtime.FuncForPC(pc).Name()
-	var found = strings.LastIndexByte(funcName, '.')
-	if found < 0 {
-		return funcName
-	}
-	return funcName[found+1:]
 }

@@ -97,7 +97,7 @@ You can set logging preference. below is preference properties
 
 name     | type   | default | remark
 ---------:| :----- | :----- | :-----
-ShowMethod  |  bool | false | whether show method name or not
+ShowMethod  |  bool | true | whether show method name or not
 KeepingFileDays | uint16 | 90 | max days for keeping log files
 SourcePrintSize | uint8 | 30 | source expression length
 LogfileSizeLimitMB | uint16 | 0 | max log file size in MB (not yet supported)
@@ -136,6 +136,66 @@ log.SetSentryFlushSecond(1)
 * DELIVERY_MODE_ASYNC
 	* write message using go func(). it could improve program execution because logging will be detached from main.
 	* if you use ASYNC mode, you have to call `log.Close()` when your program exit. if not, you may lost some last logging message
+
+# Logging Helper Package #
+
+Applications often wrap logging in their own package (trace id, `key=value` formatting, ...).
+Because the source location is taken from the function that calls `log.Info()`, every line is then printed
+with the location of the wrapper, not of the code that really logged.
+
+```
+# business code calls trace.Info(...) which calls log.Info(...)
+2026-09-21 09:18:01.120 INFO  [       s.c.trace.Info():148] [CHEER][evt=9f2c01ab] step=RECEIVED ...
+2026-09-21 09:18:01.124 INFO  [       s.c.trace.Info():148] [CHEER][evt=9f2c01ab] step=DONE ...
+```
+
+Register the wrapper package as a **logging helper**. Frames of registered packages are skipped and
+the first frame outside of them is printed.
+
+```go
+package trace
+
+import (
+	log "github.com/fatima-go/fatima-log"
+)
+
+func init() {
+	// register the package which calls this function
+	log.RegisterHelperPackage()
+}
+
+func (t Trace) Info(step Step, kv ...any) {
+	log.Info("%s", t.line(step, kv...))
+}
+
+// helper functions may call each other. the depth does not matter
+func (t Trace) Done(outcome Outcome) {
+	t.Info(StepDone, "outcome", outcome)
+}
+```
+
+```
+2026-09-21 09:18:01.120 INFO  [ s.c.consumer.onMessage():87] [CHEER][evt=9f2c01ab] step=RECEIVED ...
+2026-09-21 09:18:01.124 INFO  [  s.c.notify.sendReply():203] [CHEER][evt=9f2c01ab] step=DONE ...
+```
+
+* call `RegisterHelperPackage()` once, in `init()` of the helper package. no argument is needed
+* frames are skipped **by package**, so you don't have to count call depth and refactoring inside the helper never breaks the location.
+  keep the helper package for logging only : a log written by the helper package for its own purpose is also printed with its caller's location
+* error trace (`TRACE <<<`) starts from the caller of the printed location, so it is not shifted by helper frames
+* direct calls such as `log.Info()` from other packages are not affected. you can mix both styles in one program
+* Go runtime frames between helper and caller are skipped too, so a helper called by `defer` while panicking is printed with the function which panicked
+* if no caller is found outside of helper packages, the outermost helper frame is printed.
+  it happens when a goroutine is started inside the helper package, or the helper call chain is deeper than 16 frames
+
+## Call site cache ##
+
+A call site (program counter) always maps to the same function, file and line, so the source expression `[...]`
+is built only once per call site and reused. This applies to every log, with or without helper packages.
+
+* the number of frames to unwind is learned from the deepest helper chain seen so far, so only the needed frames are unwound
+* `SetShowMethod()`, `SetSourcePrintSize()` and `RegisterHelperPackage()` reset the cache when the value is really changed
+* the cache is bounded by the number of log call sites in your binary (and capped to 8192 entries)
 
 # log folder sample #
 ```

@@ -28,25 +28,20 @@ import (
 	"time"
 )
 
-func newErrorTraceLogEvent(pc uintptr, file string, line int, originError error) *ErrorTraceLogEvent {
+func newErrorTraceLogEvent(site *callSite, originError error) *ErrorTraceLogEvent {
 	event := ErrorTraceLogEvent{}
 	event.t = time.Now()
 	event.announce = false
-	event.pc = pc
-	event.file = file
-	event.line = line
+	event.site = site
 	event.originError = originError
 	event.tracePoint = make([]TracePoint, 0)
-	if logPreference.ShowMethod {
-		event.funcName = findFunctionName(pc)
-	}
 	return &event
 }
 
 type TracePoint struct {
-	pc   uintptr
-	file string
-	line int
+	funcName string
+	file     string
+	line     int
 }
 
 type ErrorTraceLogEvent struct {
@@ -100,7 +95,7 @@ func (event *ErrorTraceLogEvent) getTrace() string {
 		buffer.WriteString(fmt.Sprintf("\t(%s) :: %s\n\tTRACE <<<\n", reflect.TypeOf(err).String(), err))
 	}
 	for _, v := range event.tracePoint {
-		buffer.WriteString(fmt.Sprintf("\t[%s(), %s:%d]\n", findFunctionName(v.pc), buildSourcePath(v.file), v.line))
+		buffer.WriteString(fmt.Sprintf("\t[%s(), %s:%d]\n", v.funcName, buildSourcePath(v.file), v.line))
 	}
 	return buffer.String()
 
